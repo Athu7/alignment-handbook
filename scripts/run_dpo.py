@@ -16,9 +16,12 @@
 import logging
 import random
 import sys
+import pytz
+import wandb
 
 import torch
 import transformers
+from datetime import datetime
 from transformers import AutoModelForCausalLM, set_seed
 
 from alignment import (
@@ -94,43 +97,43 @@ def main():
     data_args.truncation_side = "left"  # Truncate from left to ensure we don't lose labels in final turn
     tokenizer = get_tokenizer(model_args, data_args)
 
-    #####################
-    # Apply chat template
-    #####################
-    raw_datasets = raw_datasets.map(
-        apply_chat_template,
-        fn_kwargs={
-            "tokenizer": tokenizer,
-            "task": "dpo",
-            "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
-        },
-        num_proc=data_args.preprocessing_num_workers,
-        remove_columns=column_names,
-        desc="Formatting comparisons with prompt template",
-    )
+    # #####################
+    # # Apply chat template
+    # #####################
+    # raw_datasets = raw_datasets.map(
+    #     apply_chat_template,
+    #     fn_kwargs={
+    #         "tokenizer": tokenizer,
+    #         "task": "dpo",
+    #         "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
+    #     },
+    #     num_proc=data_args.preprocessing_num_workers,
+    #     remove_columns=column_names,
+    #     desc="Formatting comparisons with prompt template",
+    # )
 
-    ##########################
-    # Decontaminate benchmarks
-    ##########################
-    num_raw_train_samples = len(raw_datasets["train"])
-    raw_datasets = raw_datasets.filter(
-        decontaminate_humaneval,
-        fn_kwargs={"text_column": "text_chosen"},
-        batched=True,
-        batch_size=10_000,
-        num_proc=1,
-        desc="Decontaminating HumanEval samples",
-    )
-    num_filtered_train_samples = num_raw_train_samples - len(raw_datasets["train"])
-    logger.info(
-        f"Decontaminated {num_filtered_train_samples} ({num_filtered_train_samples/num_raw_train_samples * 100:.2f}%) samples from the training set."
-    )
+    # ##########################
+    # # Decontaminate benchmarks
+    # ##########################
+    # num_raw_train_samples = len(raw_datasets["train"])
+    # raw_datasets = raw_datasets.filter(
+    #     decontaminate_humaneval,
+    #     fn_kwargs={"text_column": "text_chosen"},
+    #     batched=True,
+    #     batch_size=10_000,
+    #     num_proc=1,
+    #     desc="Decontaminating HumanEval samples",
+    # )
+    # num_filtered_train_samples = num_raw_train_samples - len(raw_datasets["train"])
+    # logger.info(
+    #     f"Decontaminated {num_filtered_train_samples} ({num_filtered_train_samples/num_raw_train_samples * 100:.2f}%) samples from the training set."
+    # )
 
-    # Replace column names with what TRL needs, text_chosen -> chosen and text_rejected -> rejected
-    for split in ["train", "test"]:
-        raw_datasets[split] = raw_datasets[split].rename_columns(
-            {"text_prompt": "prompt", "text_chosen": "chosen", "text_rejected": "rejected"}
-        )
+    # # Replace column names with what TRL needs, text_chosen -> chosen and text_rejected -> rejected
+    # for split in ["train", "test"]:
+    #     raw_datasets[split] = raw_datasets[split].rename_columns(
+    #         {"text_prompt": "prompt", "text_chosen": "chosen", "text_rejected": "rejected"}
+    #     )
 
     # Log a few random samples from the training set:
     for index in random.sample(range(len(raw_datasets["train"])), 3):
@@ -183,7 +186,19 @@ def main():
     if model_args.use_peft is True:
         ref_model = None
         ref_model_kwargs = None
+    indian_timezone = pytz.timezone('Asia/Kolkata')
+    indian_time = datetime.now(indian_timezone)
+    timestamp = indian_time.strftime('%Y%m%d%H%M%S')
+    run_name = f"checklist_dpo_training_handbook_llama3b_quant_instruct_{timestamp}"
 
+    wandb.login(key = "1f16e97ba710932269d87d4f265f5cf7e2775407")
+    wandb.init(
+        project="complieaze-trainings",
+        dir=run_name,
+        name=run_name,
+        id=run_name,
+        save_code=True,
+    )
     #########################
     # Instantiate DPO trainer
     #########################
@@ -195,7 +210,6 @@ def main():
         args=training_args,
         beta=training_args.beta,
         train_dataset=raw_datasets["train"],
-        eval_dataset=raw_datasets["test"],
         tokenizer=tokenizer,
         max_length=training_args.max_length,
         max_prompt_length=training_args.max_prompt_length,
