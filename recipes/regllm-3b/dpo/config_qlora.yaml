@@ -19,9 +19,10 @@ lora_target_modules:
 - down_proj
 
 dataset_mixer:
-  dataeaze/checklists_preference_train_dataset_llama_format: 1.0
+  dataeaze/checklists_preference_train_dataset_llama_format_preliminary_sections: 1.0
 dataset_splits:
 - train
+- test
 
 preprocessing_num_workers: 12
 
@@ -31,17 +32,21 @@ beta: 0.1
 gradient_accumulation_steps: 2
 learning_rate: 5.0e-6
 log_level: info
-logging_steps: 100
+logging_steps: 10 
 lr_scheduler_type: linear 
 max_length: 2048
 max_prompt_length: 1024 
 num_train_epochs: 3
 optim: adamw_8bit
-output_dir: checklist_dpo_with_hf_v0 # It is handy to append `hub_model_revision` to keep track of your local experiments
+output_dir: checklist_dpo_with_hf_on_preliminary_secitions 
 per_device_train_batch_size: 1
+per_device_eval_batch_size: 1
 # push_to_hub: true
+eval_strategy: steps
 save_strategy: steps
-save_steps: 2000
+load_best_model_at_end: true
+save_steps: 300
+eval_steps: 300
 seed: 42
 warmup_ratio: 0.1
 weight_decay: 0.01

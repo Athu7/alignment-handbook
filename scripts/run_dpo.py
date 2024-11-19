@@ -89,6 +89,7 @@ def main():
     logger.info(
         f"Training on the following splits: {[split + ' : ' + str(dset.num_rows) for split, dset in raw_datasets.items()]}"
     )
+    # import code; code.interact(local = locals())
     column_names = list(raw_datasets["train"].features)
 
     #####################################
@@ -136,10 +137,10 @@ def main():
     #     )
 
     # Log a few random samples from the training set:
-    for index in random.sample(range(len(raw_datasets["train"])), 3):
-        logger.info(f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}")
-        logger.info(f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}")
-        logger.info(f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}")
+    # for index in random.sample(range(len(raw_datasets["train"])), 3):
+    #     logger.info(f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}")
+    #     logger.info(f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}")
+    #     logger.info(f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}")
 
     torch_dtype = (
         model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
@@ -189,7 +190,7 @@ def main():
     indian_timezone = pytz.timezone('Asia/Kolkata')
     indian_time = datetime.now(indian_timezone)
     timestamp = indian_time.strftime('%Y%m%d%H%M%S')
-    run_name = f"checklist_dpo_training_handbook_llama3b_quant_instruct_{timestamp}"
+    run_name = f"checklist_dpo_training_handbook_llama3b_quant_instruct_on_prelim_dataset{timestamp}"
 
     wandb.login(key = "1f16e97ba710932269d87d4f265f5cf7e2775407")
     wandb.init(
@@ -210,6 +211,7 @@ def main():
         args=training_args,
         beta=training_args.beta,
         train_dataset=raw_datasets["train"],
+        eval_dataset=raw_datasets["test"],
         tokenizer=tokenizer,
         max_length=training_args.max_length,
         max_prompt_length=training_args.max_prompt_length,
